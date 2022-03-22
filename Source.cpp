@@ -1,5 +1,5 @@
 // Multi-Threaded password cracker implemented by Jonah McElfatrick
-// Uses a mixture of dictionary attack and brute force methods to attempt to crack the inputted hash
+// Uses a mixture of dictionary attack, random string attack and brute force methods to attempt to crack the inputted hash
 // The hash algorithms compatible with this algorithm are MD5, SHA224, SHA256, SHA384 and SHA512
 #include <iostream>
 #include <string>
@@ -7,6 +7,7 @@
 #include <thread>
 #include <mutex>
 #include <vector>
+#include <algorithm> 
 #include "md5.h" // NOT MY OWN WORK, THIS FILE WAS TAKEN FROM http://www.zedwood.com/article/cpp-md5-function
 #include "sha224.h" // NOT MY OWN WORK, THIS FILE WAS TAKEN FROM http://www.zedwood.com/article/cpp-sha224-function
 #include "sha256.h" // NOT MY OWN WORK, THIS FILE WAS TAKEN FROM http://www.zedwood.com/article/cpp-sha256-function
@@ -108,7 +109,7 @@ void dictionaryAttack(string filename, string inputHash, int hashChoice, int dis
 				cout << contents << endl;
 				cout_mutex.unlock();
 			}
-			
+
 			// Initialise hash variable to store the hashed attempted password
 			string hash = "";
 
@@ -356,6 +357,7 @@ void bruteForce(int stringlength, string s, string inputHash, int hashChoice, in
 	}
 }
 
+// Function to use a dictionary file to append multiple strings together and attempt them as a password
 void randomStringAttack(string filename, string inputHash, int hashChoice, int display) {
 	// Variable for the contents of the file and then the attempted password
 	string contents;
@@ -379,127 +381,172 @@ void randomStringAttack(string filename, string inputHash, int hashChoice, int d
 		// Closes the input textfile
 		file.close();
 		// Takes each line in the text file and hashes the contents, then compares it to the entered hash
-		while (!done){
+		while (!done) {
 			for (int i = 0; i < words.size(); i++) {
-				for (int j = 1; j < words.size(); j++) {
-					for (int k = 2; k < words.size(); k++) {
+				for (int j = 0; j < words.size(); j++) {
+					for (int k = 0; k < words.size(); k++) {
 						if (done) {
 							return;
 						}
-						//cout << words[i] << '-' << words[j] << '-' << words[k];
-						contents = words[i] + '-' + words[j] + '-' + words[k];
 
-						// Notify the counter condition variable to allow the addition of another attempt to the counter variable
-						counter_bool = true;
-						counter_cv.notify_one();
-
-						// Check to see if the user wants to print out current password being attempted
-						// Mutex's used to allow for a clean output on which password is being attempted
-						if (display == 1) {
-							cout_mutex.lock();
-							cout << contents << endl;
-							cout_mutex.unlock();
+						// Section to account for both upper and lower case posibilities
+						string attempts[7];
+						for (int x = 0; x < 7; x++) {
+							switch (x) {
+							case 0:
+								transform(words[i].begin(), words[i].end(), words[i].begin(), tolower);
+								transform(words[j].begin(), words[j].end(), words[j].begin(), tolower);
+								transform(words[k].begin(), words[k].end(), words[k].begin(), tolower);
+								break;
+							case 1:
+								transform(words[i].begin(), words[i].end(), words[i].begin(), tolower);
+								transform(words[j].begin(), words[j].end(), words[j].begin(), tolower);
+								transform(words[k].begin(), words[k].end(), words[k].begin(), toupper);
+								break;
+							case 2:
+								transform(words[i].begin(), words[i].end(), words[i].begin(), tolower);
+								transform(words[j].begin(), words[j].end(), words[j].begin(), toupper);
+								transform(words[k].begin(), words[k].end(), words[k].begin(), toupper);
+								break;
+							case 3:
+								transform(words[i].begin(), words[i].end(), words[i].begin(), tolower);
+								transform(words[j].begin(), words[j].end(), words[j].begin(), toupper);
+								transform(words[k].begin(), words[k].end(), words[k].begin(), tolower);
+								break;
+							case 4:
+								transform(words[i].begin(), words[i].end(), words[i].begin(), toupper);
+								transform(words[j].begin(), words[j].end(), words[j].begin(), tolower);
+								transform(words[k].begin(), words[k].end(), words[k].begin(), toupper);
+								break;
+							case 5:
+								transform(words[i].begin(), words[i].end(), words[i].begin(), toupper);
+								transform(words[j].begin(), words[j].end(), words[j].begin(), toupper);
+								transform(words[k].begin(), words[k].end(), words[k].begin(), tolower);
+								break;
+							case 6:
+								transform(words[i].begin(), words[i].end(), words[i].begin(), toupper);
+								transform(words[j].begin(), words[j].end(), words[j].begin(), toupper);
+								transform(words[k].begin(), words[k].end(), words[k].begin(), toupper);
+								break;
+							}
+							attempts[x] = words[i] + '-' + words[j] + '-' + words[k];
 						}
 
-						// Initialise hash variable to store the hashed attempted password
-						string hash = "";
+						for (const string& a : attempts) {
 
-						if (hashChoice == 1 || hashChoice == 2) {
-							// Hash the password using MD5
-							hash_mutex.lock();
-							hash = md5(contents);
-							hash_mutex.unlock();
+							// Set contents 
+							contents = a;
 
-							// Checks to see if the current hashed attempted password is equal to the inputted hash in MD5
-							if (hash == inputHash) {
-								hashMethod = "MD5";
-								cout << endl << "Hash: " << hash << endl;
+							// Notify the counter condition variable to allow the addition of another attempt to the counter variable
+							counter_bool = true;
+							counter_cv.notify_one();
+
+							// Check to see if the user wants to print out current password being attempted
+							// Mutex's used to allow for a clean output on which password is being attempted
+							if (display == 1) {
 								cout_mutex.lock();
-								done = true;
-								FoundPassword = contents;
-								method = "Random String";
+								cout << contents << endl;
 								cout_mutex.unlock();
 							}
-						}
 
-						if (hashChoice == 1 || hashChoice == 3) {
-							// Hash the password using sha224
-							hash_mutex.lock();
-							hash = sha224(contents);
-							hash_mutex.unlock();
+							// Initialise hash variable to store the hashed attempted password
+							string hash = "";
 
-							// Checks to see if the current hashed attempted password is equal to the inputted hash in SHA224
-							if (hash == inputHash) {
-								hashMethod = "SHA-224";
-								cout << endl << "Hash: " << hash << endl;
-								cout_mutex.lock();
-								done = true;
-								FoundPassword = contents;
-								method = "Random String";
-								cout_mutex.unlock();
+							if (hashChoice == 1 || hashChoice == 2) {
+								// Hash the password using MD5
+								hash_mutex.lock();
+								hash = md5(contents);
+								hash_mutex.unlock();
+
+								// Checks to see if the current hashed attempted password is equal to the inputted hash in MD5
+								if (hash == inputHash) {
+									hashMethod = "MD5";
+									cout << endl << "Hash: " << hash << endl;
+									cout_mutex.lock();
+									done = true;
+									FoundPassword = contents;
+									method = "Random String";
+									cout_mutex.unlock();
+								}
 							}
-						}
 
-						if (hashChoice == 1 || hashChoice == 4) {
-							// Hash the password using sha256
-							hash_mutex.lock();
-							hash = sha256(contents);
-							hash_mutex.unlock();
+							if (hashChoice == 1 || hashChoice == 3) {
+								// Hash the password using sha224
+								hash_mutex.lock();
+								hash = sha224(contents);
+								hash_mutex.unlock();
 
-							// Checks to see if the current hashed attempted password is equal to the inputted hash in SHA256
-							if (hash == inputHash) {
-								hashMethod = "SHA-256";
-								cout << endl << "Hash: " << hash << endl;
-								cout_mutex.lock();
-								done = true;
-								FoundPassword = contents;
-								method = "Random String";
-								cout_mutex.unlock();
+								// Checks to see if the current hashed attempted password is equal to the inputted hash in SHA224
+								if (hash == inputHash) {
+									hashMethod = "SHA-224";
+									cout << endl << "Hash: " << hash << endl;
+									cout_mutex.lock();
+									done = true;
+									FoundPassword = contents;
+									method = "Random String";
+									cout_mutex.unlock();
+								}
 							}
-						}
 
-						if (hashChoice == 1 || hashChoice == 5) {
-							// Hash the password using sha384
-							hash_mutex.lock();
-							hash = sha384(contents);
-							hash_mutex.unlock();
+							if (hashChoice == 1 || hashChoice == 4) {
+								// Hash the password using sha256
+								hash_mutex.lock();
+								hash = sha256(contents);
+								hash_mutex.unlock();
 
-							// Checks to see if the current hashed attempted password is equal to the inputted hash in SHA384
-							if (hash == inputHash) {
-								hashMethod = "SHA-384";
-								cout << endl << "Hash: " << hash << endl;
-								cout_mutex.lock();
-								done = true;
-								FoundPassword = contents;
-								method = "Random String";
-								cout_mutex.unlock();
+								// Checks to see if the current hashed attempted password is equal to the inputted hash in SHA256
+								if (hash == inputHash) {
+									hashMethod = "SHA-256";
+									cout << endl << "Hash: " << hash << endl;
+									cout_mutex.lock();
+									done = true;
+									FoundPassword = contents;
+									method = "Random String";
+									cout_mutex.unlock();
+								}
 							}
-						}
 
-						if (hashChoice == 1 || hashChoice == 6) {
-							// Hash the password using sha512
-							hash_mutex.lock();
-							hash = sha512(contents);
-							hash_mutex.unlock();
+							if (hashChoice == 1 || hashChoice == 5) {
+								// Hash the password using sha384
+								hash_mutex.lock();
+								hash = sha384(contents);
+								hash_mutex.unlock();
 
-							// Checks to see if the current hashed attempted password is equal to the inputted hash in SHA512
-							if (hash == inputHash) {
-								hashMethod = "SHA-512";
-								cout << endl << "Hash: " << hash << endl;
-								cout_mutex.lock();
-								done = true;
-								FoundPassword = contents;
-								method = "Random String";
-								cout_mutex.unlock();
+								// Checks to see if the current hashed attempted password is equal to the inputted hash in SHA384
+								if (hash == inputHash) {
+									hashMethod = "SHA-384";
+									cout << endl << "Hash: " << hash << endl;
+									cout_mutex.lock();
+									done = true;
+									FoundPassword = contents;
+									method = "Random String";
+									cout_mutex.unlock();
+								}
+							}
+
+							if (hashChoice == 1 || hashChoice == 6) {
+								// Hash the password using sha512
+								hash_mutex.lock();
+								hash = sha512(contents);
+								hash_mutex.unlock();
+
+								// Checks to see if the current hashed attempted password is equal to the inputted hash in SHA512
+								if (hash == inputHash) {
+									hashMethod = "SHA-512";
+									cout << endl << "Hash: " << hash << endl;
+									cout_mutex.lock();
+									done = true;
+									FoundPassword = contents;
+									method = "Random String";
+									cout_mutex.unlock();
+								}
 							}
 						}
 					}
 				}
 			}
-			
 		}
 	}
-	
 	return;
 }
 
@@ -613,7 +660,7 @@ int ReceiveThreads() {
 	cout << endl;
 	// Validate choice is one from the list above
 	validateInt(1, 2, choice);
-	
+
 	if (choice == 1) {
 		cout << "Please enter the number of characters you would like to try to crack: " << endl << ">> ";
 		cin >> threadNumber;
@@ -705,7 +752,7 @@ int main()
 {
 	// Initialise variable for storing the filename of the wordlist being used for the dictionary attack
 	string dictionaryFilename;
-	
+
 	// Initialise variable for storing the filename of the wordlist being used for the random string attack
 	string stringFilename;
 
@@ -720,7 +767,7 @@ int main()
 
 	// Length of the string being attempted as the password
 	int stringlength = 1;
-	
+
 	// Number of threads that are being initiated 
 	int threadNumber;
 
@@ -804,7 +851,6 @@ int main()
 		counter_cv.notify_one();
 		(tvector.front()).join();
 	}
-
 	system("pause");
 	return 0;
 }

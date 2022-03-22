@@ -1,4 +1,3 @@
-// Multi-Threaded password cracker implemented by Jonah McElfatrick
 // Uses a mixture of dictionary attack, random string attack and brute force methods to attempt to crack the inputted hash
 // The hash algorithms compatible with this algorithm are MD5, SHA224, SHA256, SHA384 and SHA512
 #include <iostream>
@@ -70,8 +69,8 @@ const char LowerCaseLetters[26] =
 // Symbols array
 const char Symbols[22] =
 {
-	'!','£','$','%','^','&','*','(',')'
-	,'@','~','#','|','?','¬','`','{',
+	'!','Â£','$','%','^','&','*','(',')'
+	,'@','~','#','|','?','Â¬','`','{',
 	'}','[',']',';',':'
 };
 
